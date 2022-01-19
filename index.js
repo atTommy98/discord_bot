@@ -1,4 +1,5 @@
-const { Client, Intents, Interaction } = require("discord.js");
+const { Client, Intents, Collection } = require("discord.js");
+const fs = require("fs");
 require("dotenv").config();
 
 // Create client instance
@@ -9,22 +10,32 @@ client.once("ready", () => {
   console.log("Bot up and running!");
 });
 
-// Listen for commands
+// Client commands
+client.commands = new Collection();
+const commandFiles = fs
+  .readdirSync("./commands")
+  .filter((file) => file.endsWith(".js"));
+
+commandFiles.forEach((file) => {
+  const command = require(`./commands/${file}`);
+  client.commands.set(command.data.name, command);
+});
+
 client.on("interactionCreate", async (interaction) => {
   if (!interaction.isCommand()) return;
 
-  const { commandName } = interaction;
+  const command = client.commands.get(interaction.commandName);
 
-  if (commandName === "ping") {
-    await interaction.reply("Pong!");
-  } else if (commandName === "server") {
-    await interaction.reply(
-      `Server name: ${interaction.guild.name}\nTotal members: ${interaction.guild.memberCount}`
-    );
-  } else if (commandName === "user") {
-    await interaction.reply(
-      `Your tag: ${interaction.user.tag}\nYour id: ${interaction.user.id}`
-    );
+  if (!command) return;
+
+  try {
+    await command.execute(interaction);
+  } catch (e) {
+    console.error(e);
+    await interaction.reply({
+      content: "An error occured attempting to execute this command.",
+      ephemeral: true,
+    });
   }
 });
 
